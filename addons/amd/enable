@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import os
-import json
 import pathlib
 import subprocess
 import click
@@ -90,6 +89,8 @@ def main(
     subprocess.run([MICROK8S_ENABLE, "core/helm"])
     if install_cert_manager:
         cert_manager_install(debug)
+    else:
+        click.echo("Skipping cert-manager install")
     deploy_gpu_operator(
         helm_set=gpu_operator_set, 
         helm_values=gpu_operator_values, 
