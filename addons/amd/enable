@@ -13,60 +13,8 @@ SNAP = pathlib.Path(os.getenv("SNAP") or "/snap/microk8s/current")
 HELM = SNAP / "microk8s-helm3.wrapper"
 KUBECTL = SNAP / "microk8s-kubectl.wrapper"
 MICROK8S_ENABLE = SNAP / "microk8s-enable.wrapper"
-
-def verify_cert_manager():
-    '''
-    Check if cert-manager is already installed.
-    '''
-    try:
-        helm_chart_json_string = subprocess.check_output([HELM, "ls", "-n", "cert-manager", "-o", "json"])
-        helm_charts = json.loads(helm_chart_json_string)
-    except(OSError, json.JSONDecodeError):
-        click.echo("WARNING: Failed to retrieve cert-manager helm charts, proceeding with cert-manager installation")
-        return False
-
-    has_helm_chart = False
-    for helm_chart in helm_charts:
-        name = helm_chart["name"] == "cert-manager"
-        if not name:
-            continue
-        status = helm_chart["status"] == "deployed"
-        chart = helm_chart["chart"] == "cert-manager-v1.15.1"
-        app_version = helm_chart["app_version"] == "v1.15.1"
-        if status and chart and app_version:
-            has_helm_chart = True
-
-    if not has_helm_chart:
-        return False
     
-    try:
-        pods_json_string = subprocess.check_output([KUBECTL, "get", "pods", "-n", "cert-manager", "-o", "json"])
-        pods = json.loads(pods_json_string)["items"]
-    except(OSError, json.JSONDecodeError):
-        click.echo("WARNING: Failed to retrieve cert-manager pods, proceeding with cert-manager installation")
-        return False
-    
-    containers_ready = True
-    for pod in pods:
-        if "cert-manager" not in pod["metadata"]["name"]:
-            continue
-        container_status = pod["status"]["containerStatuses"]
-        current_containers_ready = all([container["ready"] for container in container_status])
-        containers_ready = containers_ready and current_containers_ready
-        
-    return containers_ready
-    
-def install_cert_manager(installed_cert_manager:bool):
-    '''
-    Install cert-manager if not already installed.
-    '''
-    if installed_cert_manager:
-        if verify_cert_manager():
-            click.echo("cert-manager already installed, skipping")
-            return
-        else:
-            click.echo("cert-manager not installed or not available, proceeding to installation")
-    
+def cert_manager_install():
     click.echo("Installing cert-manager")
     subprocess.run([HELM, "repo", "add", "jetstack", "https://charts.jetstack.io", "--force-update"])
     subprocess.run([
@@ -113,12 +61,12 @@ def deploy_gpu_operator(
     
 
 @click.command()
-@click.option("--installed-cert-manager", is_flag=True, help="Use to indicate if cert-manager is already installed to avoid re-installation")
-@click.option("--gpu-operator-version", "gpu_operator_version")
-@click.option("--gpu-operator-set", "gpu_operator_set", multiple=True)
-@click.option("--gpu-operator-values", "gpu_operator_values", type=click.Path(exists=True))
+@click.option("--install-cert-manager", type=bool, default=True)
+@click.option("--gpu-operator-version")
+@click.option("--gpu-operator-set", multiple=True)
+@click.option("--gpu-operator-values", type=click.Path(exists=True))
 def main(
-    installed_cert_manager: bool,
+    install_cert_manager: bool,
     gpu_operator_version: Optional[str],
     gpu_operator_set: Optional[list],
     gpu_operator_values: Optional[str],
@@ -130,7 +78,8 @@ def main(
             sys.exit(1)
 
     subprocess.run([MICROK8S_ENABLE, "core/helm"])
-    install_cert_manager(installed_cert_manager)
+    if install_cert_manager:
+        cert_manager_install()
     deploy_gpu_operator(
         helm_set=gpu_operator_set, 
         helm_values=gpu_operator_values, 
