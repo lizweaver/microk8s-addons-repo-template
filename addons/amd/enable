@@ -1,0 +1,149 @@
+#!/usr/bin/env python3
+
+import os
+import json
+import pathlib
+import subprocess
+import click
+import sys
+from typing import Optional
+
+# path variables here
+SNAP = pathlib.Path(os.getenv("SNAP") or "/snap/microk8s/current")
+HELM = SNAP / "microk8s-helm3.wrapper"
+KUBECTL = SNAP / "microk8s-kubectl.wrapper"
+MICROK8S_ENABLE = SNAP / "microk8s-enable.wrapper"
+
+# check cluster health
+def check_nodes():
+    try: 
+        nodes_json_string = subprocess.check_output([KUBECTL, 'get', 'nodes', '-o', 'json'])
+        node_list = json.loads(nodes_json_string)
+    except(OSError, json.JSONDecodeError):
+        click.echo("ERROR: Failed to retrieve nodes", err=True)
+        sys.exit(1)
+    
+    for node in node_list['items']:
+        conditions = node['status']['conditions']
+        ready_condition = next((c for c in conditions if c['type'] == 'Ready'), None)
+        if ready_condition is None or ready_condition['status'] != 'True':
+            click.echo("ERROR: Not ready nodes detected. Please check the health of your cluster", err=True)
+            sys.exit(1)
+
+# check if cert-manager is already installed, if not install it
+def verify_cert_manager():
+    try:
+        helm_chart_json_string = subprocess.check_output([HELM, "ls", "-n", "cert-manager", "-o", "json"])
+        helm_charts = json.loads(helm_chart_json_string)
+    except(OSError, json.JSONDecodeError):
+        click.echo("WARNING: Failed to retrieve cert-manager helm charts, proceeding with cert-manager installation")
+        return False
+
+    # validate has cert-manager helm chart deployed
+    has_helm_chart = False
+    for helm_chart in helm_charts:
+        name = helm_chart["name"] == "cert-manager"
+        if not name:
+            continue
+        status = helm_chart["status"] == "deployed"
+        chart = helm_chart["chart"] == "cert-manager-v1.15.1"
+        app_version = helm_chart["appVersion"] == "v1.15.1"
+        if status and chart and app_version:
+            has_helm_chart = True
+
+    if not has_helm_chart:
+        return False
+    
+    # validate all cert-manager pods are ready
+    try:
+        pods_json_string = subprocess.check_output([KUBECTL, "get", "pods", "-n", "cert-manager", "-o", "json"])
+        pods = json.loads(pods_json_string)
+    except(OSError, json.JSONDecodeError):
+        click.echo("WARNING: Failed to retrieve cert-manager pods, proceeding with cert-manager installation")
+        return False
+    
+    containers_ready = True
+    for pod in pods:
+        if "cert-manager" not in pod["metadata"]["name"]:
+            continue
+        container_status = pod["status"]["containerStatuses"]
+        current_containers_ready = all([container["ready"] for container in container_status])
+        containers_ready = containers_ready and current_containers_ready
+
+    return containers_ready
+    
+def install_cert_manager(
+    installed_cert_manager:bool
+):
+    if installed_cert_manager or verify_cert_manager():
+        return
+    else:
+        click.echo("Installing cert-manager")
+        subprocess.run([HELM, "repo", "add", "jetstack", "https://charts.jetstack.io", "--force-update"])
+        subprocess.run([
+            HELM, 
+            "install", 
+            "cert-manager", 
+            "jetstack/cert-manager", 
+            "--namespace", 
+            "cert-manager",
+            "--create-namespace",
+            "--version",
+            "v1.15.1",
+            "--set",
+            "crds.enabled=true"
+        ])
+
+# install the gpu operator
+def deploy_gpu_operator(
+    helm_set : list,
+    helm_values: Optional[str] = None,
+    version: Optional[str] = None,
+):
+    click.echo("Deploying AMD GPU Operator")
+
+    subprocess.run([HELM, "repo", "add", "rocm", "https://rocm.github.io/gpu-operator"])
+    subprocess.run([HELM, "repo", "update"])
+
+    operator_args = [
+        "install",
+        "amd-gpu-operator",
+        "rocm/gpu-operator-charts",
+        "--namespace",
+        "kube-amd-gpu",
+        "--create-namespace"
+    ]
+
+    if version is not None:
+        operator_args.extend(["--version", version])
+    for set in helm_set:
+        operator_args.extend(["--set", set])
+    if helm_values is not None:
+        operator_args.extend(["-f", helm_values])
+
+    subprocess.run([HELM, *operator_args])
+    
+
+@click.command()
+@click.option("--installed-cert-manager", is_flag=True)
+@click.option("--gpu-operator-version")
+@click.option("--gpu-operator-set", multiple=True)
+@click.option("--gpu-operator-values", type=click.Path(exists=True))
+def main(
+    installed_cert_manager: bool,
+    gpu_operator_version: Optional[str],
+    gpu_operator_set: Optional[list],
+    gpu_operator_values: Optional[str],
+):
+    subprocess.run([MICROK8S_ENABLE, "core/helm"]) # make sure helm is enabled
+    check_nodes()
+    install_cert_manager(installed_cert_manager)
+    deploy_gpu_operator(
+        helm_set=gpu_operator_set, 
+        helm_values=gpu_operator_values, 
+        version=gpu_operator_version
+    )
+
+if __name__ == "__main__":
+    main()
+    
