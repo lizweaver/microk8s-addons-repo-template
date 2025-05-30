@@ -22,7 +22,7 @@ def main(
         click.echo("WARNING: Attempting to delete all CRDs")
         try:
             crds_json_string = subprocess.check_output([KUBECTL, "get", "crds", "-o", "json"])
-            crds = json.loads(crds_json_string)
+            crds = json.loads(crds_json_string)["items"]
             for crd in crds:
                 crd_name = crd.get("name")
                 subprocess.run([KUBECTL, "delete", "crds", crd_name])

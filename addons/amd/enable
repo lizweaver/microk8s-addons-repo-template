@@ -70,6 +70,9 @@ def verify_cert_manager():
         current_containers_ready = all([container["ready"] for container in container_status])
         containers_ready = containers_ready and current_containers_ready
 
+    if containers_ready:
+        click.echo("WARNING: cert-manager may already be installed, skipping installation")
+        
     return containers_ready
     
 def install_cert_manager(
