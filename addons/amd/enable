@@ -57,7 +57,7 @@ def verify_cert_manager():
     # validate all cert-manager pods are ready
     try:
         pods_json_string = subprocess.check_output([KUBECTL, "get", "pods", "-n", "cert-manager", "-o", "json"])
-        pods = json.loads(pods_json_string)
+        pods = json.loads(pods_json_string)["items"]
     except(OSError, json.JSONDecodeError):
         click.echo("WARNING: Failed to retrieve cert-manager pods, proceeding with cert-manager installation")
         return False
