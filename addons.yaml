@@ -5,6 +5,7 @@ microk8s-addons:
       description: "AMD GPU Operator addon"
       version: "1.0.0"
       check_status: "deployment.apps/amd-gpu-operator-gpu-operator-charts-controller-manager"
+      # consider adding a readiness pod?
       confinement: "classic"
       supported_architectures:
         - amd64
