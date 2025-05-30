@@ -14,11 +14,11 @@ HELM = SNAP / "microk8s-helm3.wrapper"
 KUBECTL = SNAP / "microk8s-kubectl.wrapper"
 MICROK8S_ENABLE = SNAP / "microk8s-enable.wrapper"
     
-def cert_manager_install():
+def cert_manager_install(debug):
     click.echo("Installing cert-manager")
     subprocess.run([HELM, "repo", "add", "jetstack", "https://charts.jetstack.io", "--force-update"])
-    subprocess.run([
-        HELM, 
+    
+    cert_install_args = [
         "install", 
         "cert-manager", 
         "jetstack/cert-manager", 
@@ -29,12 +29,18 @@ def cert_manager_install():
         "v1.15.1",
         "--set",
         "crds.enabled=true"
-    ])
+    ] 
+
+    if debug:
+        cert_install_args.append("--debug")
+
+    subprocess.run([HELM, *cert_install_args])
 
 def deploy_gpu_operator(
     helm_set : list,
-    helm_values: Optional[str] = None,
-    version: Optional[str] = None,
+    helm_values: Optional[str],
+    version: Optional[str],
+    debug: bool,
 ):
     click.echo("Deploying AMD GPU Operator")
 
@@ -56,6 +62,8 @@ def deploy_gpu_operator(
         operator_args.extend(["--set", set])
     if helm_values is not None:
         operator_args.extend(["-f", helm_values])
+    if debug:
+        operator_args.append("--debug")
 
     subprocess.run([HELM, *operator_args])
     
@@ -65,11 +73,13 @@ def deploy_gpu_operator(
 @click.option("--gpu-operator-version")
 @click.option("--gpu-operator-set", multiple=True)
 @click.option("--gpu-operator-values", type=click.Path(exists=True))
+@click.option("--debug", is_flag=True)
 def main(
     install_cert_manager: bool,
     gpu_operator_version: Optional[str],
     gpu_operator_set: Optional[list],
     gpu_operator_values: Optional[str],
+    debug: bool,
 ):
     if gpu_operator_version is not None:
         version_pattern = r'^v\d+\.\d+\.\d+$'
@@ -79,11 +89,12 @@ def main(
 
     subprocess.run([MICROK8S_ENABLE, "core/helm"])
     if install_cert_manager:
-        cert_manager_install()
+        cert_manager_install(debug)
     deploy_gpu_operator(
         helm_set=gpu_operator_set, 
         helm_values=gpu_operator_values, 
-        version=gpu_operator_version
+        version=gpu_operator_version,
+        debug=debug,
     )
 
 if __name__ == "__main__":
