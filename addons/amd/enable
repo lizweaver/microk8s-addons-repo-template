@@ -6,6 +6,7 @@ import pathlib
 import subprocess
 import click
 import sys
+import re
 from typing import Optional
 
 # path variables here
@@ -131,13 +132,20 @@ def deploy_gpu_operator(
 @click.option("--installed-cert-manager", is_flag=True)
 @click.option("--gpu-operator-version")
 @click.option("--gpu-operator-set", multiple=True)
-@click.option("--gpu-operator-values", type=click.Path(exists=True))
+@click.option("--gpu-operator-values", '-f', 'gpu_operator_values', type=click.Path(exists=True))
 def main(
     installed_cert_manager: bool,
     gpu_operator_version: Optional[str],
     gpu_operator_set: Optional[list],
     gpu_operator_values: Optional[str],
 ):
+    # check inputs
+    if gpu_operator_version is not None:
+        version_pattern = r'^v\d+\.\d+\.\d+$'
+        if not bool(re.match(version_pattern, gpu_operator_version)):
+            click.echo(f"ERROR: Invalid version string {gpu_operator_version}", err=True)
+            sys.exit(1)
+
     subprocess.run([MICROK8S_ENABLE, "core/helm"]) # make sure helm is enabled
     check_nodes()
     install_cert_manager(installed_cert_manager)
