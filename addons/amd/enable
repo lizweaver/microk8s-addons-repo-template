@@ -54,33 +54,34 @@ def verify_cert_manager():
         container_status = pod["status"]["containerStatuses"]
         current_containers_ready = all([container["ready"] for container in container_status])
         containers_ready = containers_ready and current_containers_ready
-
-    if containers_ready:
-        click.echo("WARNING: cert-manager may already be installed, skipping installation")
         
     return containers_ready
     
 def install_cert_manager(
     installed_cert_manager:bool
 ):
-    if installed_cert_manager or verify_cert_manager():
-        return
-    else:
-        click.echo("Installing cert-manager")
-        subprocess.run([HELM, "repo", "add", "jetstack", "https://charts.jetstack.io", "--force-update"])
-        subprocess.run([
-            HELM, 
-            "install", 
-            "cert-manager", 
-            "jetstack/cert-manager", 
-            "--namespace", 
-            "cert-manager",
-            "--create-namespace",
-            "--version",
-            "v1.15.1",
-            "--set",
-            "crds.enabled=true"
-        ])
+    if installed_cert_manager:
+        if verify_cert_manager():
+            click.echo("cert-manager already installed, skipping")
+            return
+        else:
+            click.echo("cert-manager not installed or not available, proceeding to installation")
+    
+    click.echo("Installing cert-manager")
+    subprocess.run([HELM, "repo", "add", "jetstack", "https://charts.jetstack.io", "--force-update"])
+    subprocess.run([
+        HELM, 
+        "install", 
+        "cert-manager", 
+        "jetstack/cert-manager", 
+        "--namespace", 
+        "cert-manager",
+        "--create-namespace",
+        "--version",
+        "v1.15.1",
+        "--set",
+        "crds.enabled=true"
+    ])
 
 # install the gpu operator
 def deploy_gpu_operator(
@@ -114,9 +115,9 @@ def deploy_gpu_operator(
 
 @click.command()
 @click.option("--installed-cert-manager", is_flag=True)
-@click.option("--gpu-operator-version", "--version", "gpu_operator_version")
-@click.option("--gpu-operator-set", "--set", "gpu_operator_set", multiple=True)
-@click.option("--gpu-operator-values", "-f", "gpu_operator_values", type=click.Path(exists=True))
+@click.option("--gpu-operator-version", "gpu_operator_version")
+@click.option("--gpu-operator-set", "gpu_operator_set", multiple=True)
+@click.option("--gpu-operator-values", "gpu_operator_values", type=click.Path(exists=True))
 def main(
     installed_cert_manager: bool,
     gpu_operator_version: Optional[str],
