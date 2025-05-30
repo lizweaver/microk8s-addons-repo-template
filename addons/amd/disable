@@ -16,7 +16,7 @@ def main(
     delete_all_crds: bool,
 ):
     click.echo("Disabling AMD GPU operator")
-    stdout = subprocess.check_output([HELM, "uninstall", "amd-gpu-operator", "-n", "kube-amd-gpu"])
+    subprocess.check_output([HELM, "uninstall", "amd-gpu-operator", "-n", "kube-amd-gpu"])
 
     if delete_all_crds:
         click.echo("WARNING: Attempting to delete all CRDs")
