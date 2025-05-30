@@ -15,22 +15,6 @@ HELM = SNAP / "microk8s-helm3.wrapper"
 KUBECTL = SNAP / "microk8s-kubectl.wrapper"
 MICROK8S_ENABLE = SNAP / "microk8s-enable.wrapper"
 
-# check cluster health
-def check_nodes():
-    try: 
-        nodes_json_string = subprocess.check_output([KUBECTL, 'get', 'nodes', '-o', 'json'])
-        node_list = json.loads(nodes_json_string)
-    except(OSError, json.JSONDecodeError):
-        click.echo("ERROR: Failed to retrieve nodes", err=True)
-        sys.exit(1)
-    
-    for node in node_list['items']:
-        conditions = node['status']['conditions']
-        ready_condition = next((c for c in conditions if c['type'] == 'Ready'), None)
-        if ready_condition is None or ready_condition['status'] != 'True':
-            click.echo("ERROR: Not ready nodes detected. Please check the health of your cluster", err=True)
-            sys.exit(1)
-
 # check if cert-manager is already installed, if not install it
 def verify_cert_manager():
     try:
@@ -147,7 +131,6 @@ def main(
             sys.exit(1)
 
     subprocess.run([MICROK8S_ENABLE, "core/helm"]) # make sure helm is enabled
-    check_nodes()
     install_cert_manager(installed_cert_manager)
     deploy_gpu_operator(
         helm_set=gpu_operator_set, 
