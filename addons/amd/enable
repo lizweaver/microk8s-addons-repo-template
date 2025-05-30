@@ -47,7 +47,7 @@ def verify_cert_manager():
             continue
         status = helm_chart["status"] == "deployed"
         chart = helm_chart["chart"] == "cert-manager-v1.15.1"
-        app_version = helm_chart["appVersion"] == "v1.15.1"
+        app_version = helm_chart["app_version"] == "v1.15.1"
         if status and chart and app_version:
             has_helm_chart = True
 
