@@ -114,9 +114,9 @@ def deploy_gpu_operator(
 
 @click.command()
 @click.option("--installed-cert-manager", is_flag=True)
-@click.option("--gpu-operator-version")
-@click.option("--gpu-operator-set", multiple=True)
-@click.option("--gpu-operator-values", '-f', 'gpu_operator_values', type=click.Path(exists=True))
+@click.option("--gpu-operator-version", "--version", "gpu_operator_version")
+@click.option("--gpu-operator-set", "--set", "gpu_operator_set", multiple=True)
+@click.option("--gpu-operator-values", "-f", "gpu_operator_values", type=click.Path(exists=True))
 def main(
     installed_cert_manager: bool,
     gpu_operator_version: Optional[str],
