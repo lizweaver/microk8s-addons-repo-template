@@ -72,7 +72,7 @@ def deploy_gpu_operator(
 @click.option("--gpu-operator-version")
 @click.option("--gpu-operator-set", multiple=True)
 @click.option("--gpu-operator-values", type=click.Path(exists=True))
-@click.option("--debug", "debug_enable", is_flag=True)
+@click.option("--debug-enable", is_flag=True)
 def main(
     install_cert_manager: bool,
     gpu_operator_version: Optional[str],

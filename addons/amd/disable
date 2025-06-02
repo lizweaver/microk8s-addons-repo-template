@@ -9,7 +9,7 @@ SNAP = pathlib.Path(os.getenv("SNAP") or "/snap/microk8s/current")
 HELM = SNAP / "microk8s-helm3.wrapper"
 
 @click.command()
-@click.Option("--debug", "debug_disable", is_flag=True)
+@click.Option("--debug-disable", is_flag=True)
 def main(debug_disable: bool):
     click.echo("Disabling AMD GPU operator")
     uninstall_args = ["uninstall", "amd-gpu-operator", "-n", "kube-amd-gpu"]
