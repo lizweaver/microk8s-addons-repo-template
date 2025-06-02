@@ -72,13 +72,13 @@ def deploy_gpu_operator(
 @click.option("--gpu-operator-version")
 @click.option("--gpu-operator-set", multiple=True)
 @click.option("--gpu-operator-values", type=click.Path(exists=True))
-@click.option("--debug-enable", is_flag=True)
+@click.option("--debug", is_flag=True)
 def main(
     install_cert_manager: bool,
     gpu_operator_version: Optional[str],
     gpu_operator_set: Optional[list],
     gpu_operator_values: Optional[str],
-    debug_enable: bool,
+    debug: bool,
 ):
     if gpu_operator_version is not None:
         version_pattern = r'^v\d+\.\d+\.\d+$'
@@ -88,14 +88,14 @@ def main(
 
     subprocess.run([MICROK8S_ENABLE, "core/helm"])
     if install_cert_manager:
-        cert_manager_install(debug_enable)
+        cert_manager_install(debug)
     else:
         click.echo("Skipping cert-manager install")
     deploy_gpu_operator(
         helm_set=gpu_operator_set, 
         helm_values=gpu_operator_values, 
         version=gpu_operator_version,
-        debug=debug_enable,
+        debug=debug,
     )
 
 if __name__ == "__main__":
