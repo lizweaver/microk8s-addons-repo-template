@@ -10,7 +10,7 @@ HELM = SNAP / "microk8s-helm3.wrapper"
 
 @click.command()
 #@click.Option("--debug-disable", is_flag=True)
-def main(debug_disable: bool):
+def main(debug_disable=False):
     click.echo("Disabling AMD GPU operator")
     uninstall_args = ["uninstall", "amd-gpu-operator", "-n", "kube-amd-gpu"]
 
