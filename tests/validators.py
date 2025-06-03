@@ -22,29 +22,28 @@ from utils import (
 TEMPLATES = Path(__file__).absolute().parent / "templates"
 PATCH_TEMPLATES = Path(__file__).absolute().parent / "templates" / "patches"
 
-def validate_amd():
+def validate_amd_gpu():
     """
-    Validate amd gpu addon.
+    Validate AMD GPU by running a simple test pod that runs 'amd-smi' and checks output.
     """
-    wait_for_pod_state(
-        pod="",
-        namespace="kube-amd-gpu",
-        desired_state="status",
-        label="control-plane=controller-manager",
-        timeout_insec=1500,
-    )
-    test_template = TEMPLATES / "amd-test.yaml"
 
-    get_pod = kubectl_get("po")
-    if "amd-test-pod" in str(get_pod):
-        kubectl("delete -f {}".format(test_template))
-        time.sleep(30)
-    
-    kubectl("apply -f {}".format(test_template))
-    wait_for_pod_state(
-        pod="amd-test-pod",
-        namespace="default",
-        desired_state="terminated",
-    )
-    result = kubectl("logs pod/amd-test-pod")
-    assert "PASSED" in result
+    if platform.machine() != "x86_64":
+        print("GPU tests are only relevant on x86 architectures")
+        return
+
+    namespace = "default"
+    test_pod_name = "amd-smi"
+    smi_manifest = TEMPLATES / "amd-smi.yaml"
+
+    existing_pods = kubectl(f"get po {test_pod_name} -n {namespace}")
+    if test_pod_name in existing_pods:
+        kubectl(f"delete po {test_pod_name} -n {namespace}")
+        time.sleep(10)
+
+    kubectl(f"apply -f {smi_manifest}")
+    wait_for_pod_state(test_pod_name, namespace, "Succeeded", timeout_insec=600)
+
+    logs = kubectl(f"logs pod/{test_pod_name} -n {namespace}")
+
+    passed = "AMDSMI Tool" in logs and "GPU" in logs and "ROCm version" in logs
+    assert passed
