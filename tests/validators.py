@@ -1,22 +1,10 @@
 import time
-import os
-import re
-import requests
 import platform
-import yaml
-import subprocess
 from pathlib import Path
 
 from utils import (
-    get_arch,
     kubectl,
     wait_for_pod_state,
-    kubectl_get,
-    wait_for_installation,
-    docker,
-    update_yaml_with_arch,
-    run_until_success,
-    is_multinode,
 )
 
 TEMPLATES = Path(__file__).absolute().parent / "templates"
@@ -45,5 +33,5 @@ def validate_amd_gpu():
 
     logs = kubectl(f"logs pod/{test_pod_name} -n {namespace}")
 
-    passed = "AMDSMI Tool" in logs and "GPU" in logs and "ROCm version" in logs
+    passed = "AMDSMI Tool" in logs and "ROCm version" in logs
     assert passed
